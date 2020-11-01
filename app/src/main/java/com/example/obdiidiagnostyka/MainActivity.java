@@ -1,8 +1,5 @@
 package com.example.obdiidiagnostyka;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -18,15 +15,24 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     IntentFilter filter = new IntentFilter();
+    BluetoothSocket OBDSocket;
+    InputStream OBDInput;
+    OutputStream OBDOutput;
+    DataInputStream InStream;
+    BluetoothDevice device;
     private final BroadcastReceiver mReciver = new BroadcastReceiver() {
         private static final String TAG = "Bluetooth TAG";
 
@@ -35,20 +41,50 @@ public class MainActivity extends AppCompatActivity {
             Log.v(TAG, "Doing:" + action);
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
 
-                BluetoothDevice device = (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                device = (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 String DeviceName = device.getName();
                 Log.v(TAG, "Found Device:" + device.getName());
                 if (DeviceName != null)
                     if (DeviceName.equals("raspberry")) {
                         try {
-                            BluetoothSocket socket = device.createInsecureRfcommSocketToServiceRecord(UUID.fromString("5dc85d5b-4bdd-40ca-ab9c-c700c088c6c4"));
-                            socket.connect();
+                            BluetoothAdapter bluetoothAdapter;
+                            bluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE)).getAdapter();
+                            bluetoothAdapter.cancelDiscovery();
+                            OBDSocket = device.createInsecureRfcommSocketToServiceRecord(UUID.fromString("5dc85d5b-4bdd-40ca-ab9c-c700c088c6c4"));
+                            OBDSocket.connect();
 
-                            InputStream inputStream = socket.getInputStream();
-                            OutputStream outputStream = socket.getOutputStream();
-                            String hw = new String("Hello World");
+                            OBDInput = OBDSocket.getInputStream();
+                            OBDOutput = OBDSocket.getOutputStream();
+                            new bluetoothDeviceHandler(device, OBDSocket, OBDInput, OBDOutput);
+                            String hw = new String("EnX88hsumpCFAqBxr#ckpL!7X7G+eDCEyLGq!Bc?X-^s5$BJm*PGfD!tnBtj7f8B@5!XL=Bu#?8p$sAeWUMK=2+5HAXBe9=VhTwE");
 
-                            outputStream.write(hw.getBytes(Charset.defaultCharset()));
+                            bluetoothDeviceHandler.getInstance().sendData(hw);
+//                             InStream =
+//                            byte[] buffer = new byte[1024];  // buffer store for the stream
+//                            int bytes; // bytes returned from read()
+//                            bytes = InStream.read(buffer) ;
+////                            BufferedInputStream bis = new BufferedInputStream(OBDInput);
+////                            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+////                            int result = bis.read();
+////                            while(result != -1)
+////                            {
+////                                buf.write((byte)result);
+////                                result = bis.read();
+////                            }
+                            String readMessage = bluetoothDeviceHandler.getInstance().readData();
+                            if (readMessage.equals("Accept")) {
+                                hw = "Connect";
+                                bluetoothDeviceHandler.getInstance().sendData(hw);
+                                InStream = new DataInputStream(OBDInput);
+                                String response = bluetoothDeviceHandler.getInstance().readData();
+                                Log.e("Bluetooth", response);
+                                startActivity(new Intent(MainActivity.this, erro.class));
+//                                intent.putExtra("Socket", OBDSocket);
+
+
+                            }
+                            Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_SHORT).show();
+
 
                         } catch (IOException e) {
                             e.printStackTrace();
